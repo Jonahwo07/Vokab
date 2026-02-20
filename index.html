@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vokabel-Trainer Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .card { width: 300px; height: 200px; perspective: 1000px; cursor: pointer; margin-bottom: 20px; }
+        .card-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.6s; transform-style: preserve-3d; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 15px; }
+        .card.flipped .card-inner { transform: rotateY(180deg); }
+        .card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; border-radius: 15px; background: white; padding: 10px; box-sizing: border-box; }
+        .card-back { transform: rotateY(180deg); background: #e8f5e9; color: #2e7d32; }
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; }
+        button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-success { background: #4caf50; color: white; }
+        .btn-fail { background: #f44336; color: white; }
+        .stats { background: white; padding: 15px; border-radius: 10px; width: 300px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .upload-area { margin-bottom: 20px; border: 2px dashed #ccc; padding: 10px; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <h2>Vokabel-Trainer</h2>
+
+    <div class="upload-area">
+        <label>Foto hochladen (Format: Fremd - Deutsch):</label><br>
+        <input type="file" id="imageInput" accept="image/*">
+    </div>
+
+    <div class="card" id="card" onclick="this.classList.toggle('flipped')">
+        <div class="card-inner">
+            <div class="card-front" id="frontText">Bereit?</div>
+            <div class="card-back" id="backText">Lade Vokabeln...</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn-fail" onclick="notLearned()">Ich kann's nicht</button>
+        <button class="btn-success" onclick="learned()">Ich kann's</button>
+    </div>
+
+    <div class="stats">
+        <div>Gesamt: <span id="total">0</span></div>
+        <div>Gelernt: <span id="known">0</span></div>
+        <div>Offen: <span id="remaining">0</span></div>
+    </div>
+
+    <script>
+        let vocabList = [];
+        let currentIndex = 0;
+        let knownCount = 0;
+
+        const imageInput = document.getElementById('imageInput');
+        
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('frontText').innerText = "Erkenne Text...";
+            
+            Tesseract.recognize(file, 'deu+eng').then(({ data: { text } }) => {
+                const lines = text.split('\n').filter(line => line.includes('-') || line.includes(':'));
+                vocabList = lines.map(line => {
+                    const parts = line.split(/[-:]/);
+                    return { foreign: parts[0].trim(), native: parts[1].trim() };
+                });
+                updateCard();
+                updateStats();
+            });
+        });
+
+        function updateCard() {
+            if (vocabList.length > 0) {
+                document.getElementById('frontText').innerText = vocabList[0].foreign;
+                document.getElementById('backText').innerText = vocabList[0].native;
+                document.getElementById('card').classList.remove('flipped');
+            } else {
+                document.getElementById('frontText').innerText = "Fertig!";
+                document.getElementById('backText').innerText = "Alles gelernt!";
+            }
+        }
+
+        function learned() {
+            if (vocabList.length === 0) return;
+            vocabList.shift();
+            knownCount++;
+            updateCard();
+            updateStats();
+        }
+
+        function notLearned() {
+            if (vocabList.length === 0) return;
+            const current = vocabList.shift();
+            vocabList.push(current); // Ans Ende der Liste verschieben
+            updateCard();
+            updateStats();
+        }
+
+        function updateStats() {
+            document.getElementById('total').innerText = vocabList.length + knownCount;
+            document.getElementById('known').innerText = knownCount;
+            document.getElementById('remaining').innerText = vocabList.length;
+        }
+    </script>
+</body>
+</html>
